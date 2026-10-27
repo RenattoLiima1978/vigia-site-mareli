@@ -1,0 +1,39 @@
+name: Vigia do site
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # a cada 5 minutos (o GitHub às vezes atrasa alguns minutos)
+    - cron: "0 12 1 * *"    # todo dia 1: grava ultimo-mes.txt para o GitHub não pausar o vigia
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vigia
+  cancel-in-progress: false
+
+jobs:
+  vigia:
+    if: github.event.schedule != '0 12 1 * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conferir o site
+        env:
+          GATILHO_DEPLOY: ${{ secrets.GATILHO_DEPLOY }}
+        run: python3 vigia.py
+
+  manter-ativo:
+    if: github.event.schedule == '0 12 1 * *'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          date -u +"%d/%m/%Y" > ultimo-mes.txt
+          git config user.name "vigia-mareli"
+          git config user.email "vigia@users.noreply.github.com"
+          git add ultimo-mes.txt
+          git commit -m "Vigia ativo em $(date -u +%m/%Y)" || true
+          git push
